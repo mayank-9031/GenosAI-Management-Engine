@@ -18,7 +18,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <div className="leading-tight">
           <p className="text-sm font-semibold tracking-tight">GenosAI</p>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Revenue Engine</p>
+          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Sales Intelligence Platform</p>
         </div>
         {onNavigate && (
           <button

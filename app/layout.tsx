@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GenosAI Revenue Engine",
+  title: "GenosAI · Sales Intelligence Platform",
   description:
     "AI-powered sales automation — capture, qualify, engage, and convert leads into booked appointments and closed deals.",
 };
