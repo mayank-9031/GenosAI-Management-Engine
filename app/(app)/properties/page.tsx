@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bath, BedDouble, Maximize, Plus, Users } from "lucide-react";
+import { Bath, BedDouble, Maximize, Users } from "lucide-react";
 import { useStore } from "@/lib/store/store";
+import { AddPropertyDialog } from "@/components/properties/add-property-dialog";
 import { PageHeader } from "@/components/shared/bits";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { FadeIn } from "@/components/shared/motion";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -24,7 +24,7 @@ export default function PropertiesPage() {
       <PageHeader
         title="Property Management"
         subtitle="Available inventory and buyer interest."
-        actions={<Button><Plus /> Add Property</Button>}
+        actions={<AddPropertyDialog />}
       />
 
       <div className="mb-4 flex flex-wrap gap-2">

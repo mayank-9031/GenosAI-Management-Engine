@@ -5,7 +5,10 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import {
   ActivityEvent,
   Lead,
+  LeadSource,
   NotificationItem,
+  Property,
+  PropertyStatus,
 } from "@/lib/types";
 import { BASE_TIME, createSeed, mockHelpers, type SeedData } from "@/lib/mock/data";
 import { makeRng, pick, int, float, type Rng } from "@/lib/mock/random";
@@ -19,6 +22,28 @@ export interface AiConfig {
   supportTone: "Professional" | "Friendly" | "Concise";
 }
 
+export interface NewLeadInput {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  source: LeadSource;
+  budget: number;
+  timeline: string;
+  purchaseIntent: "High" | "Medium" | "Low";
+}
+
+export interface NewPropertyInput {
+  name: string;
+  address: string;
+  price: number;
+  bedrooms: number;
+  bathrooms: number;
+  sqft: number;
+  status: PropertyStatus;
+  features: string[];
+}
+
 interface AppState extends SeedData {
   now: number;
   clockHydrated: boolean;
@@ -29,6 +54,10 @@ interface AppState extends SeedData {
   hydrateClock: () => void;
   tickClock: () => void;
   simulateStep: () => void;
+
+  // entity creation
+  addLead: (input: NewLeadInput) => void;
+  addProperty: (input: NewPropertyInput) => void;
 
   // user actions
   toggleIntegration: (id: string) => void;
@@ -204,6 +233,77 @@ export const useStore = create<AppState>()(
         set(updates);
       },
 
+      addLead: (input) => {
+        const state = get();
+        const at = Date.now();
+        const counter = state.counter + 1;
+        const lead: Lead = {
+          id: `lead-new-${counter}`,
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          location: input.location,
+          source: input.source,
+          status: "New",
+          score: mockHelpers.scoreFor(liveRng, "New"),
+          assignedAgentId: pick(liveRng, state.agents).id,
+          estimatedValue: Math.round(input.budget * float(liveRng, 0.04, 0.07, 3)),
+          budget: input.budget,
+          timeline: input.timeline,
+          purchaseIntent: input.purchaseIntent,
+          financingNeeds: pick(liveRng, ["Pre-approved", "Needs financing", "Cash buyer", "Exploring options"]),
+          aiSummary: mockHelpers.aiSummary(liveRng, input.name, input.purchaseIntent),
+          createdAt: at,
+          lastActivityAt: at,
+        };
+        set({
+          counter,
+          leads: [lead, ...state.leads],
+          activity: [
+            {
+              id: `act-new-lead-${counter}`,
+              type: "Lead Created",
+              title: `New lead: ${lead.name}`,
+              detail: `via ${lead.source} · added manually`,
+              agentId: lead.assignedAgentId,
+              at,
+            } as ActivityEvent,
+            ...state.activity,
+          ].slice(0, 60),
+          notifications: [
+            { id: `notif-lead-${counter}`, title: "Lead added", detail: `${lead.name} entered the pipeline.`, kind: "success", at, read: false } as NotificationItem,
+            ...state.notifications,
+          ],
+        });
+      },
+
+      addProperty: (input) => {
+        const state = get();
+        const counter = state.counter + 1;
+        const property: Property = {
+          id: `prop-new-${counter}`,
+          name: input.name,
+          address: input.address,
+          price: input.price,
+          bedrooms: input.bedrooms,
+          bathrooms: input.bathrooms,
+          sqft: input.sqft,
+          status: input.status,
+          features: input.features,
+          gradient: pick(liveRng, mockHelpers.gradients),
+          interestedLeadIds: [],
+          viewingsScheduled: 0,
+        };
+        set({
+          counter,
+          properties: [property, ...state.properties],
+          notifications: [
+            { id: `notif-prop-${counter}`, title: "Property listed", detail: `${property.name} added to inventory.`, kind: "info", at: Date.now(), read: false } as NotificationItem,
+            ...state.notifications,
+          ],
+        });
+      },
+
       toggleIntegration: (id) =>
         set((s) => ({
           integrations: s.integrations.map((i) =>
@@ -224,7 +324,7 @@ export const useStore = create<AppState>()(
       },
     }),
     {
-      name: "genosai-store-v1",
+      name: "genosai-store-v2",
       storage: createJSONStorage(() => localStorage),
       // SSR-safe: server + first client render use the deterministic seed; the
       // provider rehydrates persisted state after mount (no hydration mismatch).

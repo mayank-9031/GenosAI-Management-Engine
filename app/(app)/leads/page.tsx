@@ -3,11 +3,10 @@
 import { useStore } from "@/lib/store/store";
 import { statusCounts } from "@/lib/store/selectors";
 import { LeadsTable } from "@/components/leads/leads-table";
+import { AddLeadDialog } from "@/components/leads/add-lead-dialog";
 import { PageHeader } from "@/components/shared/bits";
 import { Card } from "@/components/ui/card";
 import { FadeIn } from "@/components/shared/motion";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 export default function LeadsPage() {
   const leads = useStore((s) => s.leads);
@@ -27,11 +26,7 @@ export default function LeadsPage() {
         title="Lead Management"
         subtitle="Your AI-powered CRM — every prospect, qualified and tracked."
         live
-        actions={
-          <Button>
-            <Plus /> Add Lead
-          </Button>
-        }
+        actions={<AddLeadDialog />}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">

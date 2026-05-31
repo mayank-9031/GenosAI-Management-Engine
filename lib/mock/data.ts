@@ -15,6 +15,7 @@ import {
   Sentiment,
   SeriesPoint,
   SupportCategory,
+  SupportMessage,
   Ticket,
   TicketStatus,
   TranscriptLine,
@@ -195,31 +196,101 @@ function buildLeads(rng: Rng, agents: Agent[]): Lead[] {
   return leads.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
 }
 
-function transcriptFor(rng: Rng, leadName: string, start: number): TranscriptLine[] {
+function transcriptFor(
+  rng: Rng,
+  leadName: string,
+  start: number,
+  outcome: CallOutcome,
+  agentFirst: string,
+): TranscriptLine[] {
   const first = leadName.split(" ")[0];
-  const lines: Array<[TranscriptLine["speaker"], string]> = [
-    ["AI", `Hi ${first}, this is Genos calling from Summit Realty. Is now a good time?`],
-    ["Lead", pick(rng, ["Sure, I have a few minutes.", "Yeah, go ahead.", "Okay, quickly."])],
-    ["AI", "Great — I saw you were exploring properties recently. What's most important to you right now?"],
-    ["Lead", pick(rng, [
-      "Mainly the budget and a good school district.",
-      "I need something move-in ready within two months.",
-      "Honestly just browsing for now, not in a rush.",
-    ])],
-    ["AI", "Understood. And do you have financing in place, or would a pre-approval help?"],
-    ["Lead", pick(rng, ["I'm pre-approved already.", "I'd need help with financing.", "Paying cash, actually."])],
-    ["AI", "Perfect. I can line up three listings that fit. Would Thursday at 2pm work for a viewing?"],
-    ["Lead", pick(rng, ["Thursday works.", "Let me check and confirm.", "Maybe — send details first."])],
-    ["AI", "Done — I'll send confirmation by email. Thanks for your time!"],
-  ];
+  const lines: Array<[TranscriptLine["speaker"], string]> = [];
+  const push = (s: TranscriptLine["speaker"], text: string) => lines.push([s, text]);
+
+  // ── Opening ──
+  push("AI", `Hi, may I speak with ${first}? This is Genos, the AI assistant calling on behalf of Summit Realty.`);
+  push("Lead", pick(rng, ["Speaking — what's this regarding?", `Yes, this is ${first}.`, "Hi, yeah, that's me."]));
+  push("AI", "Thanks for picking up. I'll keep this quick — you recently browsed a few of our listings online, and I wanted to help you zero in on the right place. Do you have two minutes?");
+  push("Lead", pick(rng, ["Sure, go ahead.", "Okay, I've got a couple minutes.", "Yeah, that works."]));
+
+  // ── Motivation ──
+  push("AI", "Appreciate it. To point you in the right direction — what's prompting a move right now?");
+  push("Lead", pick(rng, [
+    "We're outgrowing our current place — there's a baby on the way.",
+    "My lease is up in a couple of months and I'd rather buy than renew.",
+    "I'm relocating for a new job, so the timing matters quite a bit.",
+    "Honestly, I'm mostly just keeping an eye on the market for now.",
+  ]));
+
+  // ── Must-haves ──
+  push("AI", "That makes total sense. And what are the non-negotiables at the top of your list — area, size, anything specific?");
+  push("Lead", pick(rng, [
+    "A good school district and at least three bedrooms.",
+    "Somewhere walkable, close to downtown if possible.",
+    "A yard for the dog and a dedicated home office.",
+    "I'm flexible on area, as long as it's genuinely move-in ready.",
+  ]));
+  push("AI", "Noted. A few of our newer listings hit exactly those points, so I think we can find something you'll like.");
+
+  // ── Budget ──
+  push("AI", "What budget range are you most comfortable in? That way I won't send you anything off the mark.");
+  push("Lead", pick(rng, [
+    "Somewhere around 450 to 550 thousand.",
+    "Up to about 700, depending on the property.",
+    "We'd like to stay under 400 if we can swing it.",
+    "I'm not totally sure yet — that's part of what I'm trying to figure out.",
+  ]));
+
+  // ── Financing ──
+  push("AI", "Helpful, thank you. Have you spoken with a lender yet, or would a quick pre-approval be useful?");
+  push("Lead", pick(rng, [
+    "We're already pre-approved, actually.",
+    "Not yet — that's honestly one of my bigger worries.",
+    "We'll be paying cash.",
+    "I started the process but it kind of stalled.",
+  ]));
+
+  // ── Outcome-specific close ──
+  switch (outcome) {
+    case "Appointment Booked":
+      push("AI", `Perfect — I've got three listings that line up almost exactly with that. I'd love to set you up with our agent ${agentFirst} for an in-person viewing. Would Thursday at 2pm or Saturday morning suit you better?`);
+      push("Lead", pick(rng, ["Thursday at 2 works for me.", "Saturday morning — let's do that."]));
+      push("AI", `Wonderful, you're booked in. I'll email the address, photos, and a calendar invite, and you'll get a reminder the day before. Is there anything else you'd like ${agentFirst} to prepare?`);
+      push("Lead", pick(rng, ["Maybe some comparable sales in the area?", "No, that covers it — thank you!"]));
+      push("AI", `Consider it done. Thanks so much for your time, ${first} — talk soon!`);
+      break;
+    case "Qualified":
+      push("AI", "You're exactly the kind of buyer these listings were priced for. I'll put together a tailored shortlist and have our agent reach out this week to line up a viewing — does that sound good?");
+      push("Lead", pick(rng, ["Yeah, send them over.", "Sounds good — I'll watch for the email."]));
+      push("AI", "Brilliant. I'll get those over within the hour, along with a short market snapshot for the area. Thanks for your time!");
+      push("Lead", pick(rng, ["Appreciate it.", "Great, thanks."]));
+      break;
+    case "Follow-Up Needed":
+      push("AI", "Totally understand — it sounds like the timing isn't quite locked in yet, and that's completely fine.");
+      push("Lead", pick(rng, ["Yeah, I need to talk it over with my partner first.", "Right, I'm just not ready to commit this week."]));
+      push("AI", "No pressure at all. How about I check back in a week or two, once you've had a chance to think it through? I'll also send a market report so you've got real numbers to work with.");
+      push("Lead", pick(rng, ["That'd be great, thanks.", "Sure, reach out then."]));
+      push("AI", `Will do. Enjoy the rest of your day, ${first}!`);
+      break;
+    case "Unqualified":
+      push("AI", "I appreciate the honesty. Based on what you've shared, it sounds like the current inventory in that range might not be the right fit just yet.");
+      push("Lead", pick(rng, ["Yeah, it's probably not the right time.", "Honestly, I think we jumped the gun a little."]));
+      push("AI", "That's no problem at all. I'll keep your preferences on file and only reach out if something genuinely in range comes up — no spam, I promise.");
+      push("Lead", pick(rng, ["Sounds fair, thanks.", "Appreciate that."]));
+      push("AI", "Take care, and best of luck with everything!");
+      break;
+    default:
+      push("AI", "Thanks for the detail — that gives me plenty to work with. I'll follow up shortly.");
+  }
+
   let t = start;
   return lines.map(([speaker, text]) => {
-    t += int(rng, 6, 22) * 1000;
+    t += int(rng, 5, 18) * 1000;
     return { speaker, text, at: t };
   });
 }
 
-function buildCalls(rng: Rng, leads: Lead[]): Call[] {
+function buildCalls(rng: Rng, leads: Lead[], agents: Agent[]): Call[] {
   const outcomes: CallOutcome[] = [
     "Qualified", "Follow-Up Needed", "Appointment Booked", "Unqualified", "No Answer",
   ];
@@ -252,7 +323,15 @@ function buildCalls(rng: Rng, leads: Lead[]): Call[] {
         "Schedule a follow-up in 3 days",
         "Mark unqualified — budget mismatch",
       ]),
-      transcript: noAnswer ? [] : transcriptFor(rng, lead.name, createdAt),
+      transcript: noAnswer
+        ? []
+        : transcriptFor(
+            rng,
+            lead.name,
+            createdAt,
+            outcome,
+            (agents.find((a) => a.id === lead.assignedAgentId)?.name ?? "Sarah Johnson").split(" ")[0],
+          ),
       status: "Completed",
       createdAt,
     });
@@ -302,60 +381,197 @@ function buildAppointments(rng: Rng, leads: Lead[]): Appointment[] {
   return appts.sort((a, b) => a.start - b.start);
 }
 
+type Turn = [SupportMessage["sender"], string];
+interface TicketScript {
+  subject: string;
+  turns: Turn[];
+}
+
+// Believable, multi-turn support conversations per category. Each ends mid-thread
+// for Open/AI Handling, with a human handoff for Escalated, and a wrap-up for Resolved.
+const TICKET_SCRIPTS: Record<SupportCategory, TicketScript[]> = {
+  "Financing Questions": [
+    {
+      subject: "What mortgage rate could I expect?",
+      turns: [
+        ["Customer", "Hi, I'm looking at the 3-bed on Maple St and trying to work out monthly payments. What kind of mortgage rate could I realistically expect right now?"],
+        ["AI", "Happy to help! Rates depend on a few things — credit score, down payment, and loan term. For a well-qualified buyer today, 30-year fixed rates are landing roughly between 6.4% and 7.1%. Do you know your approximate credit score?"],
+        ["Customer", "It's around 740, and I was planning to put down 20%."],
+        ["AI", "That's a strong profile — with 740 and 20% down you'd likely be at the lower end, around 6.4–6.6%. On a $480k home that's roughly a $2,420/month principal-and-interest payment, before taxes and insurance. Would you like me to run a full estimate including those?"],
+        ["Customer", "Yes please, that would be really useful."],
+        ["AI", "Great. Estimating local property tax at 1.1% and insurance around $130/month, your all-in monthly would be about $2,990. I can also connect you with our lending partner for a no-obligation pre-approval so you get exact numbers — want me to set that up?"],
+      ],
+    },
+    {
+      subject: "How long does pre-approval take?",
+      turns: [
+        ["Customer", "How long does the pre-approval process usually take? I don't want to miss out on a listing while I wait."],
+        ["AI", "Good question — with our partner lender most buyers get a pre-approval letter within 24 to 48 hours once they've submitted income docs, bank statements, and authorized a credit check. Do you have those documents handy?"],
+        ["Customer", "I have pay stubs and bank statements, but not my tax returns from last year."],
+        ["AI", "That's usually fine for an initial pre-approval — tax returns are typically needed later, at full underwriting. I'd recommend starting now so you're ready to make an offer. Shall I send you the secure document upload link?"],
+        ["Customer", "Yes, and roughly how much can I borrow on a $95k salary?"],
+        ["AI", "As a rough guide, lenders often allow a mortgage where total housing costs stay near 28% of gross monthly income. On $95k that's about $2,200/month, which could support a loan around $330k–$360k depending on your other debts. The pre-approval will confirm the exact figure."],
+      ],
+    },
+  ],
+  "Property Questions": [
+    {
+      subject: "Is the Sunset Residence still available?",
+      turns: [
+        ["Customer", "Hi! Is the Sunset Residence listing still available? I saw it last week but the status wasn't clear."],
+        ["AI", "Let me check that for you… The Sunset Residence is currently marked Available — there's one offer pending review but it has not been accepted, so you can absolutely still view it or submit an offer. Would you like the latest details?"],
+        ["Customer", "Yes. What are the HOA fees and is the price negotiable?"],
+        ["AI", "HOA fees are $245/month, which covers landscaping, the community pool, and exterior maintenance. The list price is $1,054,000 — the sellers have indicated some flexibility, and comparable homes nearby closed about 2–3% under asking recently. Are you thinking of putting in an offer soon?"],
+        ["Customer", "Possibly. Does it have any major repairs needed?"],
+        ["AI", "The seller's disclosure notes a roof replacement in 2021 and a newer HVAC system, so no major near-term repairs are flagged. I'd still recommend a professional inspection. I can have an agent send you the full disclosure packet and book a viewing — interested?"],
+      ],
+    },
+    {
+      subject: "Square footage and lot size on Oak Residence",
+      turns: [
+        ["Customer", "Can you confirm the exact square footage and lot size for the Oak Residence? The listing and the county records seem to differ."],
+        ["AI", "Good catch — that's a common discrepancy. Our listing shows 2,180 sq ft of finished living space. County records sometimes exclude the finished basement, which here adds about 380 sq ft. The lot is 0.28 acres. Would you like the floor plan so you can see the breakdown room by room?"],
+        ["Customer", "Yes please. Also, is the basement permitted?"],
+        ["AI", "I'll send the floor plan now. Regarding the basement — the seller's disclosure indicates the finish was permitted in 2019, and I can include the permit reference in the packet so your inspector can verify. Anything else about the property I can dig into?"],
+        ["Customer", "That's really thorough, thank you!"],
+      ],
+    },
+  ],
+  "Scheduling Requests": [
+    {
+      subject: "Need to reschedule Thursday's viewing",
+      turns: [
+        ["Customer", "Something came up at work — I need to reschedule my Thursday 2pm viewing for the Park Townhome. Can we move it?"],
+        ["AI", "No problem at all! I have a few openings: Friday at 4:30pm, Saturday at 10am, or Saturday at 1pm. Which works best for you?"],
+        ["Customer", "Saturday at 10am would be perfect."],
+        ["AI", "Done — I've moved your viewing to Saturday at 10:00am with agent Priya Patel. You'll get an updated calendar invite and a reminder the evening before. Would you like the same address details resent?"],
+        ["Customer", "Yes please, and can my partner join?"],
+        ["AI", "Absolutely, partners are always welcome — I've noted two attendees. I've resent the address and parking instructions to your email. See you Saturday!"],
+      ],
+    },
+    {
+      subject: "Do you have weekend availability?",
+      turns: [
+        ["Customer", "I work weekdays — do your agents do weekend viewings at all?"],
+        ["AI", "We do! Most of our agents offer Saturday viewings between 9am and 4pm, and some have Sunday afternoon slots. Which property or area were you hoping to see?"],
+        ["Customer", "The Birchwood Bungalow, and ideally this Saturday."],
+        ["AI", "Birchwood Bungalow has Saturday slots at 11am and 2:30pm this week. Shall I reserve one for you? I'll just need a name and the best contact number."],
+        ["Customer", "11am, and it's under Marcus, 555-0192."],
+        ["AI", "All set, Marcus — you're booked for Saturday at 11am. A confirmation and the address are on the way to your phone and email now."],
+      ],
+    },
+  ],
+  "Technical Support": [
+    {
+      subject: "Can't log into my buyer portal",
+      turns: [
+        ["Customer", "I'm trying to log into my buyer portal to see my saved listings but it keeps saying 'invalid credentials'. I'm sure the password is right."],
+        ["AI", "Sorry for the hassle! A couple of quick things to try: first, is the email you're using the same one you signed up with? And second, the password field is case-sensitive — could caps lock be on?"],
+        ["Customer", "Same email, and caps lock is off. Still no luck."],
+        ["AI", "Thanks for checking. It's possible your session token expired after a recent update. I can send a secure password-reset link to your email — it's valid for 30 minutes. Want me to send it now?"],
+        ["Customer", "Yes please. It's a bit frustrating, I've tried three times."],
+        ["AI", "Completely understand, and I'm sorry for the friction. The reset link is on its way. If it still fails after resetting, I'll escalate this to our technical team straight away so a human can dig into your account directly."],
+      ],
+    },
+    {
+      subject: "Listing photos won't load",
+      turns: [
+        ["Customer", "None of the property photos are loading for me — I just see grey boxes on every listing."],
+        ["AI", "That's odd, sorry about that. It's usually one of two things: a browser cache issue or an ad-blocker blocking our image host. Could you try a hard refresh (Ctrl+Shift+R) and let me know if that helps?"],
+        ["Customer", "Tried it, still grey boxes. I'm on Chrome on my work laptop."],
+        ["AI", "Thanks for testing. Work networks sometimes block our image CDN. Could you try opening one listing on your phone using mobile data, just to confirm? If it works there, it's almost certainly a network restriction on the office Wi-Fi."],
+        ["Customer", "Yeah — it loads fine on my phone."],
+        ["AI", "That confirms it's your office network filtering our image host. I'd suggest asking IT to allow 'cdn.summitrealty.app', or simply browse on mobile for now. I'll also flag this to our team so we can document the workaround."],
+      ],
+    },
+  ],
+  "General Inquiries": [
+    {
+      subject: "How does your AI service actually work?",
+      turns: [
+        ["Customer", "I keep getting messages from an 'AI assistant'. How does this whole thing actually work — am I talking to a real person or not?"],
+        ["AI", "Great question, and totally fair to ask! I'm Genos, an AI assistant for Summit Realty. I handle quick questions, scheduling, and matching you with listings 24/7. For anything that needs a human touch — negotiations, contracts, in-person viewings — I hand you straight to a licensed agent. Is there something specific I can help with today?"],
+        ["Customer", "I just want to understand if my information is safe."],
+        ["AI", "Absolutely — your details are encrypted and only shared with the agent assigned to you. We never sell your data, and you can request deletion at any time. Would you like me to connect you with a human agent as well, just so you have a direct contact?"],
+        ["Customer", "Yes, that would make me more comfortable."],
+        ["AI", "Of course — let me bring in one of our agents to introduce themselves."],
+      ],
+    },
+    {
+      subject: "Do you cover the Denver area?",
+      turns: [
+        ["Customer", "Do you cover Denver and the surrounding suburbs? Most of what I've seen is further south."],
+        ["AI", "We do! We cover Denver proper plus Aurora, Lakewood, Littleton, and Highlands Ranch. What kind of property and budget are you considering for the area?"],
+        ["Customer", "A townhome around 400k, ideally close to light rail."],
+        ["AI", "Perfect — there are several townhomes in that range near the light rail in Littleton and Aurora right now. I can put together a shortlist and have a local agent reach out. What's the best email to send those to?"],
+        ["Customer", "That sounds great, thank you so much for the quick help!"],
+      ],
+    },
+  ],
+};
+
 function buildTickets(rng: Rng): Ticket[] {
   const cats: SupportCategory[] = [
     "Financing Questions", "Property Questions", "Scheduling Requests",
     "Technical Support", "General Inquiries",
   ];
   const statuses: TicketStatus[] = ["Open", "AI Handling", "Escalated", "Resolved"];
-  const subjects: Record<SupportCategory, string[]> = {
-    "Financing Questions": ["Current mortgage rates?", "Pre-approval timeline", "Down payment options"],
-    "Property Questions": ["Is the listing still available?", "HOA fees on 24 Oak St", "Square footage details"],
-    "Scheduling Requests": ["Reschedule Thursday viewing", "Weekend availability?", "Cancel my appointment"],
-    "Technical Support": ["Can't access my portal", "Reset password", "Email link not working"],
-    "General Inquiries": ["Do you cover Denver?", "How does your service work?", "Speak to an agent"],
-  };
   const N = 20;
   const tickets: Ticket[] = [];
   for (let i = 0; i < N; i++) {
     const cat = pick(rng, cats);
     const status = pick(rng, statuses);
     const createdAt = BASE_TIME - int(rng, 0, 4) * DAY - int(rng, 0, 23) * HOUR;
-    const subject = pick(rng, subjects[cat]);
+    const script = pick(rng, TICKET_SCRIPTS[cat]);
     const customer = name(rng);
-    const msgs = [
-      { sender: "Customer" as const, text: subject, at: createdAt },
-      {
-        sender: "AI" as const,
+
+    // Build the base thread with realistic intervals.
+    let t = createdAt;
+    const msgs: SupportMessage[] = script.turns.map(([sender, text], idx) => {
+      // AI replies in seconds; customers take longer to come back.
+      t += idx === 0 ? 0 : sender === "AI" ? int(rng, 8, 55) * 1000 : int(rng, 1, 9) * MIN;
+      return { sender, text, at: t };
+    });
+
+    if (status === "Escalated") {
+      t += int(rng, 3, 18) * MIN;
+      msgs.push({
+        sender: "Human",
         text: pick(rng, [
-          "Thanks for reaching out! Let me pull that up for you.",
-          "Happy to help — here's what I found.",
-          "Great question. Based on your profile, here are the options.",
+          "Hi, this is Jordan from the Summit support team — I'll take it from here and make sure this gets sorted properly.",
+          "Hello, this is Mia, a senior specialist. Thanks for your patience — let me personally look into this for you.",
         ]),
-        at: createdAt + int(rng, 4, 40) * 1000,
-      },
-    ];
-    if (status === "Escalated")
+        at: t,
+      });
+    }
+
+    if (status === "Resolved") {
+      t += int(rng, 2, 12) * MIN;
       msgs.push({
-        sender: "Human" as const,
-        text: "Hi, this is the support team — I'll take it from here.",
-        at: createdAt + int(rng, 2, 30) * MIN,
-      } as never);
-    if (status === "Resolved")
+        sender: "Customer",
+        text: pick(rng, [
+          "That's exactly what I needed — thank you so much!",
+          "Perfect, really appreciate how quick and clear that was.",
+          "Great, that fully answers it. Thanks for the help!",
+        ]),
+        at: t,
+      });
       msgs.push({
-        sender: "Customer" as const,
-        text: pick(rng, ["Perfect, thank you!", "That answers it, appreciate it.", "Great, all set."]),
-        at: createdAt + int(rng, 5, 50) * MIN,
-      } as never);
+        sender: "AI",
+        text: "You're very welcome! I'll leave your file open in case anything else comes up. Have a great day. 🏡",
+        at: t + int(rng, 10, 40) * 1000,
+      });
+    }
+
     tickets.push({
       id: `ticket-${i + 1}`,
       customerName: customer,
       category: cat,
       status,
-      subject,
+      subject: script.subject,
       messages: msgs,
-      satisfaction: status === "Resolved" ? int(rng, 3, 5) : undefined,
-      responseTimeSec: int(rng, 4, 90),
+      satisfaction: status === "Resolved" ? int(rng, 4, 5) : undefined,
+      responseTimeSec: int(rng, 6, 75),
       createdAt,
       updatedAt: msgs[msgs.length - 1].at,
     });
@@ -517,7 +733,7 @@ export function createSeed(): SeedData {
   return {
     agents,
     leads,
-    calls: buildCalls(rng, leads),
+    calls: buildCalls(rng, leads, agents),
     appointments: buildAppointments(rng, leads),
     tickets: buildTickets(rng),
     properties: buildProperties(rng, leads),
